@@ -119,9 +119,8 @@ func findNewUIDs(email, password, mailbox string, db *db.DB) chan msg {
 
 	atomic.StoreInt64(&progress.toScan, int64(client.Mailbox.Messages))
 
-	step := uint32(100)
+	const step = 100
 	out := make(chan msg, step)
-
 	go func() {
 		begin := uint32(1)
 		for begin < client.Mailbox.Messages {
@@ -131,28 +130,17 @@ func findNewUIDs(email, password, mailbox string, db *db.DB) chan msg {
 			if err != nil {
 				log.Fatal(err)
 			}
-			atomic.AddInt64(&progress.scanned, int64(len(msgs)))
 
 			begin += step
+			atomic.AddInt64(&progress.scanned, int64(len(msgs)))
 
-			fetch := 0
 			for _, msg := range msgs {
 				if !db.Have(msg.UID) {
 					out <- msg
-					fetch++
 				} else if !sliceEquals(db.Labels(msg.UID), msg.Labels) {
 					db.SetLabels(msg.UID, msg.Labels)
 					atomic.AddInt64(&progress.labels, 1)
 				}
-			}
-
-			if fetch == 0 && step < 3200 {
-				// Scale up for faster scanning of known messages
-				step *= 2
-			} else if fetch > 0 && step > 100 {
-				// Scale down to avoid timeouts and write reasonable label
-				// chunks when we need to fetch lots of messages.
-				step /= 2
 			}
 		}
 		close(out)
