@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package db;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
+message Record {
+    uint32          message_id   = 1  [(gogoproto.customname) = "MessageID"];
+    bytes           message_data = 2;
+    bool            compressed   = 3;
+    bytes           message_hash = 4;
+    bool            deleted      = 5;
+    repeated string labels       = 6;
+}
