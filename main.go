@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -20,6 +21,11 @@ const (
 	extension = ".imapchive"
 )
 
+var (
+	version     = "unknown-dev"
+	fullVersion = fmt.Sprintf("imapchive %s (%s-%s)", version, runtime.GOOS, runtime.GOARCH)
+)
+
 var progress struct {
 	toScan  int64
 	scanned int64
@@ -28,6 +34,8 @@ var progress struct {
 }
 
 func main() {
+	kingpin.Version(fullVersion)
+
 	flagEmail := kingpin.Flag("email", "Email address").String()
 	flagPassword := kingpin.Flag("password", "Password").String()
 
