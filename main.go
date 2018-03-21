@@ -67,7 +67,7 @@ func main() {
 	case cmdFetch.FullCommand():
 		log.Println("Opening archive")
 		dbName := strings.Replace(*flagMailbox, "/", "_", -1) + extension
-		db, err := db.OpenWrite(dbName)
+		db, err := db.Open(dbName)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -101,7 +101,7 @@ func main() {
 		}
 
 	case cmdMbox.FullCommand():
-		db, err := db.OpenRead(*argFile)
+		db, err := db.Open(*argFile)
 		if err != nil {
 			fmt.Println("Opening archive:", err)
 			os.Exit(1)
@@ -119,7 +119,7 @@ func findNewUIDs(email, password, mailbox string, db *db.DB) chan msg {
 
 	atomic.StoreInt64(&progress.toScan, int64(client.Mailbox.Messages))
 
-	const step = 100
+	const step = 1000
 	out := make(chan msg, step)
 	go func() {
 		begin := uint32(1)
@@ -209,16 +209,11 @@ func mbox(db *db.DB, wr io.Writer) {
 			continue
 		}
 
-		rd, err := rec.Reader()
-		if err != nil {
-			continue
-		}
-
 		bwr.Write([]byte("From MAILER-DAEMON Thu Jan  1 01:00:00 1970\n"))
 		if labels := db.Labels(rec.MessageID); len(labels) > 0 {
 			fmt.Fprintf(bwr, "X-Gmail-Labels: %s\n", strings.Join(labels, ","))
 		}
-		sc := bufio.NewScanner(rd)
+		sc := bufio.NewScanner(bytes.NewReader(rec.MessageData))
 		for sc.Scan() {
 			line := sc.Bytes()
 			if bytes.HasPrefix(line, from) {

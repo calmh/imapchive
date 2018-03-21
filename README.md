@@ -41,12 +41,12 @@ data.
     \                                                               \
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-The data is a protocol buffer message with the following schema:
+The data is a gzip compressed protocol buffer message with the following
+schema:
 
   message Record {
       uint32          message_id   = 1;
       bytes           message_data = 2;
-      bool            compressed   = 3;
       bytes           message_hash = 4;
       bool            deleted      = 5;
       repeated string labels       = 6;
@@ -56,11 +56,9 @@ The fields have the following meaning:
 
  - `message_id`: A unique integer representing the message, equal to the IMAP message ID.
 
- - `message_data`: The raw bytes representing the message, in RFC822 format, possibly gzip compressed.
+ - `message_data`: The raw bytes representing the message, in RFC822 format.
 
- - `compressed`: True if the `message_data` is in fact gzip compressed.
-
- - `message_hash`: The SHA256 hash of the (uncompressed) message data.
+ - `message_hash`: The SHA256 hash of the message data.
 
  - `deleted`: True if the message with this `message_id` has been deleted.
 
