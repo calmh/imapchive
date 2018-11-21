@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin"
-	"kastelo.io/imapchive/db"
+	"github.com/calmh/imapchive/db"
 )
 
 const (
