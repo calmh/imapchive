@@ -52,12 +52,12 @@ func main() {
 	case cmdList.FullCommand():
 		cl, err := Client(*flagEmail, *flagPassword, "")
 		if err != nil {
-			fmt.Println("Listing mailboxes:", err)
+			fmt.Printf("Listing mailboxes: %+v\n", err)
 			os.Exit(1)
 		}
 		mailboxes, err := cl.Mailboxes()
 		if err != nil {
-			fmt.Println("Listing mailboxes:", err)
+			fmt.Printf("Listing mailboxes: %+v\n", err)
 			os.Exit(1)
 		}
 		for _, mb := range mailboxes {
@@ -69,7 +69,7 @@ func main() {
 		dbName := strings.Replace(*flagMailbox, "/", "_", -1) + extension
 		db, err := db.Open(dbName)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Opening archive: %+v", err)
 		}
 
 		log.Printf("Have %d messages", db.Size())
@@ -97,13 +97,13 @@ func main() {
 
 		err = db.WriteClose()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Save to database: %+v", err)
 		}
 
 	case cmdMbox.FullCommand():
 		db, err := db.Open(*argFile)
 		if err != nil {
-			fmt.Println("Opening archive:", err)
+			fmt.Printf("Opening archive: %+v\n", err)
 			os.Exit(1)
 		}
 
@@ -114,7 +114,7 @@ func main() {
 func findNewUIDs(email, password, mailbox string, db *db.DB) chan msg {
 	client, err := Client(email, password, mailbox)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Find new UIDs: %+v", err)
 	}
 
 	atomic.StoreInt64(&progress.toScan, int64(client.Mailbox.Messages))
@@ -128,7 +128,7 @@ func findNewUIDs(email, password, mailbox string, db *db.DB) chan msg {
 
 			msgs, err := client.MsgIDSearch(begin, end)
 			if err != nil {
-				log.Fatal(err)
+				log.Fatalf("Find new UIDs: %+v", err)
 			}
 
 			begin += step
@@ -138,7 +138,9 @@ func findNewUIDs(email, password, mailbox string, db *db.DB) chan msg {
 				if !db.Have(msg.UID) {
 					out <- msg
 				} else if !sliceEquals(db.Labels(msg.UID), msg.Labels) {
-					db.SetLabels(msg.UID, msg.Labels)
+					if err := db.SetLabels(msg.UID, msg.Labels); err != nil {
+						log.Fatalf("Save to database: %+v", err)
+					}
 					atomic.AddInt64(&progress.labels, 1)
 				}
 			}
@@ -164,7 +166,7 @@ func sliceEquals(a, b []string) bool {
 func fetchAndStore(email, password, mailbox string, id int, db *db.DB, msgids chan msg) {
 	client, err := Client(email, password, mailbox)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Fetch and store: %+v", err)
 	}
 
 loop:
@@ -177,12 +179,12 @@ loop:
 
 			body, err := client.GetMail(msgid.UID)
 			if err != nil {
-				log.Fatal(err)
+				log.Fatalf("Fetch and store: %+v", err)
 			}
 
 			err = db.WriteMessage(msgid.UID, body, msgid.Labels)
 			if err != nil {
-				log.Fatal(err)
+				log.Fatalf("Fetch and store: %+v", err)
 			}
 
 			atomic.AddInt64(&progress.fetched, 1)
