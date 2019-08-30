@@ -38,6 +38,7 @@ func main() {
 
 	flagEmail := kingpin.Flag("email", "Email address").Envar("IMAP_EMAIL").String()
 	flagPassword := kingpin.Flag("password", "Password").Envar("IMAP_PASSWORD").String()
+	flagServer := kingpin.Flag("server", "Server address").Envar("IMAP_SERVER").Default("imap.gmail.com:993").String()
 
 	cmdFetch := kingpin.Command("fetch", "Fetch new mail")
 	flagMailbox := cmdFetch.Arg("mailbox", "Mailbox name").Required().String()
@@ -50,7 +51,7 @@ func main() {
 
 	switch kingpin.Parse() {
 	case cmdList.FullCommand():
-		cl, err := Client(*flagEmail, *flagPassword, "")
+		cl, err := Client(*flagServer, *flagEmail, *flagPassword, "")
 		if err != nil {
 			fmt.Printf("Listing mailboxes: %+v\n", err)
 			os.Exit(1)
@@ -73,13 +74,13 @@ func main() {
 		}
 
 		log.Printf("Have %d messages", db.Size())
-		uids := findNewUIDs(*flagEmail, *flagPassword, *flagMailbox, db)
+		uids := findNewUIDs(*flagServer, *flagEmail, *flagPassword, *flagMailbox, db)
 
 		var wg sync.WaitGroup
 		for i := 1; i <= *flagConcurrency; i++ {
 			wg.Add(1)
 			go func(i int) {
-				fetchAndStore(*flagEmail, *flagPassword, *flagMailbox, i, db, uids)
+				fetchAndStore(*flagServer, *flagEmail, *flagPassword, *flagMailbox, i, db, uids)
 				wg.Done()
 			}(i)
 		}
@@ -87,9 +88,15 @@ func main() {
 		go func() {
 			for {
 				time.Sleep(10 * time.Second)
-				log.Printf("%d of %d scanned, %d fetched, %d labelupdated",
-					atomic.LoadInt64(&progress.scanned), atomic.LoadInt64(&progress.toScan),
-					atomic.LoadInt64(&progress.fetched), atomic.LoadInt64(&progress.labels))
+				buf := new(bytes.Buffer)
+				fmt.Fprintf(buf, "%d of %d scanned", atomic.LoadInt64(&progress.scanned), atomic.LoadInt64(&progress.toScan))
+				if fetched := atomic.LoadInt64(&progress.fetched); fetched > 0 {
+					fmt.Fprintf(buf, ", %d fetched", fetched)
+				}
+				if labeled := atomic.LoadInt64(&progress.labels); labeled > 0 {
+					fmt.Fprintf(buf, ", %d labelupdated", labeled)
+				}
+				log.Println(buf.String())
 			}
 		}()
 
@@ -111,8 +118,8 @@ func main() {
 	}
 }
 
-func findNewUIDs(email, password, mailbox string, db *db.DB) chan msg {
-	client, err := Client(email, password, mailbox)
+func findNewUIDs(server, email, password, mailbox string, db *db.DB) chan msg {
+	client, err := Client(server, email, password, mailbox)
 	if err != nil {
 		log.Fatalf("Find new UIDs: %+v", err)
 	}
@@ -125,6 +132,9 @@ func findNewUIDs(email, password, mailbox string, db *db.DB) chan msg {
 		begin := uint32(1)
 		for begin < client.Mailbox.Messages {
 			end := begin + step - 1
+			if end > client.Mailbox.Messages {
+				end = client.Mailbox.Messages
+			}
 
 			msgs, err := client.MsgIDSearch(begin, end)
 			if err != nil {
@@ -163,8 +173,8 @@ func sliceEquals(a, b []string) bool {
 	return true
 }
 
-func fetchAndStore(email, password, mailbox string, id int, db *db.DB, msgids chan msg) {
-	client, err := Client(email, password, mailbox)
+func fetchAndStore(server, email, password, mailbox string, id int, db *db.DB, msgids chan msg) {
+	client, err := Client(server, email, password, mailbox)
 	if err != nil {
 		log.Fatalf("Fetch and store: %+v", err)
 	}
