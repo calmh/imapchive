@@ -36,8 +36,8 @@ var progress struct {
 func main() {
 	kingpin.Version(fullVersion)
 
-	flagEmail := kingpin.Flag("email", "Email address").String()
-	flagPassword := kingpin.Flag("password", "Password").String()
+	flagEmail := kingpin.Flag("email", "Email address").Envar("IMAP_EMAIL").String()
+	flagPassword := kingpin.Flag("password", "Password").Envar("IMAP_PASSWORD").String()
 
 	cmdFetch := kingpin.Command("fetch", "Fetch new mail")
 	flagMailbox := cmdFetch.Arg("mailbox", "Mailbox name").Required().String()
