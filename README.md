@@ -44,13 +44,15 @@ data.
 The data is a gzip compressed protocol buffer message with the following
 schema:
 
-  message Record {
-      uint32          message_id   = 1;
-      bytes           message_data = 2;
-      bytes           message_hash = 4;
-      bool            deleted      = 5;
-      repeated string labels       = 6;
-  }
+```
+message Record {
+    uint32          message_id   = 1;
+    bytes           message_data = 2;
+    bytes           message_hash = 4;
+    bool            deleted      = 5;
+    repeated string labels       = 6;
+}
+```
 
 The fields have the following meaning:
 
