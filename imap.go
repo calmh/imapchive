@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/mxk/go-imap/imap"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -63,6 +64,9 @@ func (client *IMAPClient) GetMail(uid uint32) ([]byte, error) {
 	cmd, err := imap.Wait(client.UIDFetch(set, rfc822Attr))
 	if err != nil {
 		return nil, fmt.Errorf("get mail: %w", err)
+	}
+	if len(cmd.Data) == 0 {
+		return nil, errors.New("no data")
 	}
 	resp := cmd.Data[0]
 	body := imap.AsBytes(resp.MessageInfo().Attrs[rfc822Attr])
