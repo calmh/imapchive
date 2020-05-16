@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/mxk/go-imap/imap"
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -29,18 +28,18 @@ func Client(server, email, password, mailbox string) (*IMAPClient, error) {
 
 	cl, err := imap.DialTLS(server, &tlsCfg)
 	if err != nil {
-		return nil, xerrors.Errorf("creating client: %w", err)
+		return nil, fmt.Errorf("creating client: %w", err)
 	}
 
 	_, err = cl.Login(email, password)
 	if err != nil {
-		return nil, xerrors.Errorf("creating client: %w", err)
+		return nil, fmt.Errorf("creating client: %w", err)
 	}
 
 	if mailbox != "" {
 		_, err = cl.Select(mailbox, true)
 		if err != nil {
-			return nil, xerrors.Errorf("creating client: %w", err)
+			return nil, fmt.Errorf("creating client: %w", err)
 		}
 	}
 
@@ -63,9 +62,8 @@ func (client *IMAPClient) GetMail(uid uint32) ([]byte, error) {
 
 	cmd, err := imap.Wait(client.UIDFetch(set, rfc822Attr))
 	if err != nil {
-		return nil, xerrors.Errorf("get mail: %w", err)
+		return nil, fmt.Errorf("get mail: %w", err)
 	}
-
 	resp := cmd.Data[0]
 	body := imap.AsBytes(resp.MessageInfo().Attrs[rfc822Attr])
 
@@ -75,7 +73,7 @@ func (client *IMAPClient) GetMail(uid uint32) ([]byte, error) {
 func (client *IMAPClient) Mailboxes() ([]string, error) {
 	cmd, err := imap.Wait(client.Client.List("", "*"))
 	if err != nil {
-		return nil, xerrors.Errorf("list mailboxes: %w", err)
+		return nil, fmt.Errorf("list mailboxes: %w", err)
 	}
 
 	var res []string
@@ -100,7 +98,7 @@ func (client *IMAPClient) MsgIDSearch(first, last uint32) ([]msg, error) {
 	}
 	cmd, err := imap.Wait(client.Client.Fetch(seq, items...))
 	if err != nil {
-		return nil, xerrors.Errorf("search message IDs: %w", err)
+		return nil, fmt.Errorf("search message IDs: %w", err)
 	}
 
 	var res []msg
