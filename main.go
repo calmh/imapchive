@@ -126,13 +126,16 @@ func findNewUIDs(server, email, password, mailbox string, db *db.DB) chan msg {
 		begin := uint32(1)
 		for begin < client.Mailbox.Messages {
 			end := begin + step - 1
+			if end > client.Mailbox.Messages {
+				end = client.Mailbox.Messages
+			}
 
 			msgs, err := client.MsgIDSearch(begin, end, strings.Contains(server, "gmail"))
 			if err != nil {
 				log.Fatal(err)
 			}
 
-			begin += step
+			begin = end + 1
 			atomic.AddInt64(&progress.scanned, int64(len(msgs)))
 
 			for _, msg := range msgs {

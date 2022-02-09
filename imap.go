@@ -20,18 +20,18 @@ func Client(server, email, password, mailbox string) (*IMAPClient, error) {
 
 	cl, err := imap.DialTLS(server, &tlsCfg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("connect to server: %w", err)
 	}
 
 	_, err = cl.Login(email, password)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("login as %q: %w", email, err)
 	}
 
 	if mailbox != "" {
 		_, err = cl.Select(mailbox, true)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("select mailbox %q: %w", mailbox, err)
 		}
 	}
 
@@ -50,13 +50,13 @@ func (client *IMAPClient) GetMail(uid uint32) ([]byte, error) {
 
 	cmd, err := client.UIDFetch(set, "RFC822")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get mail %d: %w", uid, err)
 	}
 
 	for cmd.InProgress() {
 		err = client.Recv(-1)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get mail %d: %w", uid, err)
 		}
 	}
 
@@ -69,7 +69,7 @@ func (client *IMAPClient) GetMail(uid uint32) ([]byte, error) {
 func (client *IMAPClient) Mailboxes() ([]string, error) {
 	cmd, err := imap.Wait(client.Client.List("", "*"))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("mailbox list: %w", err)
 	}
 
 	var res []string
@@ -94,7 +94,7 @@ func (client *IMAPClient) MsgIDSearch(first, last uint32, withGmailLabels bool) 
 	}
 	cmd, err := imap.Wait(client.Client.Fetch(seq, labels...))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("message id search %q: %w", ss, err)
 	}
 
 	var res []msg
