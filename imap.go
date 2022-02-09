@@ -13,12 +13,12 @@ type IMAPClient struct {
 	imap.Client
 }
 
-func Client(email, password, mailbox string) (*IMAPClient, error) {
+func Client(server, email, password, mailbox string) (*IMAPClient, error) {
 	tlsCfg := tls.Config{
 		InsecureSkipVerify: true,
 	}
 
-	cl, err := imap.DialTLS("imap.gmail.com:993", &tlsCfg)
+	cl, err := imap.DialTLS(server, &tlsCfg)
 	if err != nil {
 		return nil, err
 	}

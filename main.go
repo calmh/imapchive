@@ -36,8 +36,9 @@ var progress struct {
 func main() {
 	kingpin.Version(fullVersion)
 
-	flagEmail := kingpin.Flag("email", "Email address").String()
-	flagPassword := kingpin.Flag("password", "Password").String()
+	flagServer := kingpin.Flag("server", "Server address").Envar("IMAP_SERVER").String()
+	flagEmail := kingpin.Flag("email", "Email address").Envar("IMAP_EMAIL").String()
+	flagPassword := kingpin.Flag("password", "Password").Envar("IMAP_PASSWORD").String()
 
 	cmdFetch := kingpin.Command("fetch", "Fetch new mail")
 	flagMailbox := cmdFetch.Arg("mailbox", "Mailbox name").Required().String()
@@ -50,7 +51,7 @@ func main() {
 
 	switch kingpin.Parse() {
 	case cmdList.FullCommand():
-		cl, err := Client(*flagEmail, *flagPassword, "")
+		cl, err := Client(*flagServer, *flagEmail, *flagPassword, "")
 		if err != nil {
 			fmt.Println("Listing mailboxes:", err)
 			os.Exit(1)
@@ -73,13 +74,13 @@ func main() {
 		}
 
 		log.Printf("Have %d messages", db.Size())
-		uids := findNewUIDs(*flagEmail, *flagPassword, *flagMailbox, db)
+		uids := findNewUIDs(*flagServer, *flagEmail, *flagPassword, *flagMailbox, db)
 
 		var wg sync.WaitGroup
 		for i := 1; i <= *flagConcurrency; i++ {
 			wg.Add(1)
 			go func(i int) {
-				fetchAndStore(*flagEmail, *flagPassword, *flagMailbox, i, db, uids)
+				fetchAndStore(*flagServer, *flagEmail, *flagPassword, *flagMailbox, i, db, uids)
 				wg.Done()
 			}(i)
 		}
@@ -111,8 +112,8 @@ func main() {
 	}
 }
 
-func findNewUIDs(email, password, mailbox string, db *db.DB) chan msg {
-	client, err := Client(email, password, mailbox)
+func findNewUIDs(server, email, password, mailbox string, db *db.DB) chan msg {
+	client, err := Client(server, email, password, mailbox)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -161,32 +162,24 @@ func sliceEquals(a, b []string) bool {
 	return true
 }
 
-func fetchAndStore(email, password, mailbox string, id int, db *db.DB, msgids chan msg) {
-	client, err := Client(email, password, mailbox)
+func fetchAndStore(server, email, password, mailbox string, id int, db *db.DB, msgids chan msg) {
+	client, err := Client(server, email, password, mailbox)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-loop:
-	for {
-		select {
-		case msgid, ok := <-msgids:
-			if !ok {
-				break loop
-			}
-
-			body, err := client.GetMail(msgid.UID)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			err = db.WriteMessage(msgid.UID, body, msgid.Labels)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			atomic.AddInt64(&progress.fetched, 1)
+	for msgid := range msgids {
+		body, err := client.GetMail(msgid.UID)
+		if err != nil {
+			log.Fatal(err)
 		}
+
+		err = db.WriteMessage(msgid.UID, body, msgid.Labels)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		atomic.AddInt64(&progress.fetched, 1)
 	}
 }
 
