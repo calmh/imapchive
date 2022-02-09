@@ -5,13 +5,15 @@ version=$(git describe)
 go test
 go install -v -race -ldflags "-X main.version=$version"
 
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -v -ldflags "-X main.version=$version" -o imapchive-linux-amd64
+
 [[ ${1:-} == "pkg" ]] || exit 0
 
 build() {
     name="imapchive-$version"
     rm -rf "build/$name"
     mkdir -p "build/$name"
-    GOOS=$1 GOARCH=$2 go build -i -v -ldflags "-s -w -X main.version=$version" -o "build/$name/imapchive$3"
+    GOOS=$1 GOARCH=$2 go build -v -ldflags "-s -w -X main.version=$version" -o "build/$name/imapchive$3"
 }
 
 rm -rf build
