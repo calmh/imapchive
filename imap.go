@@ -85,10 +85,14 @@ type msg struct {
 	Labels []string
 }
 
-func (client *IMAPClient) MsgIDSearch(first, last uint32) ([]msg, error) {
+func (client *IMAPClient) MsgIDSearch(first, last uint32, withGmailLabels bool) ([]msg, error) {
 	ss := fmt.Sprintf("%d:%d", first, last)
 	seq, _ := imap.NewSeqSet(ss)
-	cmd, err := imap.Wait(client.Client.Fetch(seq, "UID", "X-GM-LABELS"))
+	labels := []string{"UID"}
+	if withGmailLabels {
+		labels = append(labels, "X-GM-LABELS")
+	}
+	cmd, err := imap.Wait(client.Client.Fetch(seq, labels...))
 	if err != nil {
 		return nil, err
 	}
@@ -98,10 +102,12 @@ func (client *IMAPClient) MsgIDSearch(first, last uint32) ([]msg, error) {
 		uid := rsp.MessageInfo().UID
 
 		var labels []string
-		for _, lbl := range rsp.MessageInfo().Attrs["X-GM-LABELS"].([]imap.Field) {
-			labels = append(labels, lbl.(string))
+		if withGmailLabels {
+			for _, lbl := range rsp.MessageInfo().Attrs["X-GM-LABELS"].([]imap.Field) {
+				labels = append(labels, lbl.(string))
+			}
+			sort.Strings(labels)
 		}
-		sort.Strings(labels)
 
 		res = append(res, msg{uid, labels})
 	}
