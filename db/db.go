@@ -1,4 +1,4 @@
-//go:generate protoc -I . -I ../../../ -I ../../../github.com/gogo/protobuf/protobuf --gogofast_out=. record.proto
+//go:generate protoc --go_out=. --go_opt=paths=source_relative record.proto
 
 package db
 
@@ -13,6 +13,8 @@ import (
 	"log"
 	"os"
 	"sync"
+
+	"google.golang.org/protobuf/proto"
 )
 
 type DB struct {
@@ -70,13 +72,13 @@ func (db *DB) scan() error {
 		}
 
 		if rec.Deleted {
-			db.offsets[rec.MessageID] = -1
-			delete(db.labels, rec.MessageID)
+			db.offsets[rec.MessageId] = -1
+			delete(db.labels, rec.MessageId)
 			continue
 		}
 
-		db.offsets[rec.MessageID] = offs
-		db.labels[rec.MessageID] = rec.Labels
+		db.offsets[rec.MessageId] = offs
+		db.labels[rec.MessageId] = rec.Labels
 		db.dirty++
 	}
 	return nil
@@ -89,18 +91,18 @@ func (db *DB) writeIndex() error {
 	}
 
 	offs, _ := db.fd.Seek(0, io.SeekEnd)
-	idx := Index{
+	idx := &Index{
 		FileOffset: offs,
 	}
 	for msg, offs := range db.offsets {
 		idx.Records = append(idx.Records, &IndexRecord{
-			MessageID:  msg,
+			MessageId:  msg,
 			FileOffset: offs,
 			Labels:     db.labels[msg],
 		})
 	}
 
-	bs, _ := idx.Marshal()
+	bs, _ := proto.Marshal(idx)
 	hash := sha256.Sum256(bs)
 	if _, err := fd.Write(hash[:]); err != nil {
 		fd.Close()
@@ -141,13 +143,13 @@ func (db *DB) readIndex() error {
 	}
 
 	var idx Index
-	if err := idx.Unmarshal(dec); err != nil {
+	if err := proto.Unmarshal(dec, &idx); err != nil {
 		return err
 	}
 
 	for _, rec := range idx.Records {
-		db.labels[rec.MessageID] = rec.Labels
-		db.offsets[rec.MessageID] = rec.FileOffset
+		db.labels[rec.MessageId] = rec.Labels
+		db.offsets[rec.MessageId] = rec.FileOffset
 	}
 
 	if _, err := db.fd.Seek(idx.FileOffset, io.SeekStart); err != nil {
@@ -161,7 +163,7 @@ func (db *DB) Rewind() error {
 	return err
 }
 
-func (db *DB) ReadRecord() (MessageRecord, error) {
+func (db *DB) ReadRecord() (*MessageRecord, error) {
 	db.mut.Lock()
 	defer db.mut.Unlock()
 
@@ -169,7 +171,7 @@ func (db *DB) ReadRecord() (MessageRecord, error) {
 		db.buf = make([]byte, 65536)
 	}
 	if _, err := io.ReadFull(db.fd, db.buf[:4]); err != nil {
-		return MessageRecord{}, err
+		return nil, err
 	}
 
 	size := int(binary.BigEndian.Uint32(db.buf))
@@ -177,20 +179,20 @@ func (db *DB) ReadRecord() (MessageRecord, error) {
 		db.buf = make([]byte, size)
 	}
 	if _, err := io.ReadFull(db.fd, db.buf[:size]); err != nil {
-		return MessageRecord{}, err
+		return nil, err
 	}
 
 	bs, err := decompress(db.buf[:size])
 	if err != nil {
-		return MessageRecord{}, err
+		return nil, err
 	}
 
 	var rec MessageRecord
-	if err := rec.Unmarshal(bs); err != nil {
-		return MessageRecord{}, err
+	if err := proto.Unmarshal(bs, &rec); err != nil {
+		return nil, err
 	}
 
-	return rec, nil
+	return &rec, nil
 }
 
 func (db *DB) Size() int {
@@ -217,8 +219,8 @@ func (db *DB) SetLabels(msgid uint32, labels []string) error {
 
 	db.labels[msgid] = labels
 
-	rec := MessageRecord{
-		MessageID: msgid,
+	rec := &MessageRecord{
+		MessageId: msgid,
 		Labels:    labels,
 	}
 
@@ -235,8 +237,8 @@ func (db *DB) WriteMessage(msgid uint32, data []byte, labels []string) error {
 
 	hash := sha256.Sum256(data)
 
-	rec := MessageRecord{
-		MessageID:   msgid,
+	rec := &MessageRecord{
+		MessageId:   msgid,
 		MessageData: data,
 		MessageHash: hash[:],
 		Labels:      labels,
@@ -252,16 +254,16 @@ func (db *DB) DeleteMessage(msgid uint32) error {
 	db.offsets[msgid] = -1
 	delete(db.labels, msgid)
 
-	rec := MessageRecord{
-		MessageID: msgid,
+	rec := &MessageRecord{
+		MessageId: msgid,
 		Deleted:   true,
 	}
 
 	return db.writeRecord(rec)
 }
 
-func (db *DB) writeRecord(rec MessageRecord) error {
-	bs, err := rec.Marshal()
+func (db *DB) writeRecord(rec *MessageRecord) error {
+	bs, err := proto.Marshal(rec)
 	if err != nil {
 		return err
 	}

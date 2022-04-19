@@ -200,13 +200,13 @@ func mbox(db *db.DB, wr io.Writer) {
 			break
 		}
 
-		if !db.Have(rec.MessageID) {
+		if !db.Have(rec.MessageId) {
 			// Message has been deleted
 			continue
 		}
 
 		bwr.Write([]byte("From MAILER-DAEMON Thu Jan  1 01:00:00 1970\n"))
-		if labels := db.Labels(rec.MessageID); len(labels) > 0 {
+		if labels := db.Labels(rec.MessageId); len(labels) > 0 {
 			fmt.Fprintf(bwr, "X-Gmail-Labels: %s\n", strings.Join(labels, ","))
 		}
 		sc := bufio.NewScanner(bytes.NewReader(rec.MessageData))

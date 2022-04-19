@@ -1,11 +1,10 @@
 syntax = "proto3";
 
 package db;
-
-import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+option go_package = "github.com/calmh/imapchive/db";
 
 message MessageRecord {
-    uint32          message_id   = 1 [(gogoproto.customname) = "MessageID"];
+    uint32          message_id   = 1;
     bytes           message_data = 2;
     bytes           message_hash = 4;
     bool            deleted      = 5;
@@ -18,7 +17,7 @@ message Index {
 }
 
 message IndexRecord {
-    uint32          message_id  = 1 [(gogoproto.customname) = "MessageID"];
+    uint32          message_id  = 1;
     int64           file_offset = 2;
     repeated string labels      = 3;
 }
