@@ -52,6 +52,9 @@ func (client *IMAPClient) GetMail(uid uint32) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get mail %d: %w", uid, err)
 	}
+	if len(cmd.Data) == 0 {
+		return nil, fmt.Errorf("no data in mail %d", uid)
+	}
 
 	for cmd.InProgress() {
 		err = client.Recv(-1)
