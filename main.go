@@ -70,7 +70,7 @@ func main() {
 		dbName := strings.Replace(*flagMailbox, "/", "_", -1) + extension
 		db, err := db.Open(dbName)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalln("Failed to open archive:", err)
 		}
 
 		log.Printf("Have %d messages", db.Size())
@@ -98,7 +98,7 @@ func main() {
 
 		err = db.WriteClose()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalln("Failed to close archive:", err)
 		}
 
 	case cmdMbox.FullCommand():
@@ -115,7 +115,7 @@ func main() {
 func findNewUIDs(server, email, password, mailbox string, db *db.DB) chan msg {
 	client, err := Client(server, email, password, mailbox)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalln("Failed to connect to server:", err)
 	}
 
 	atomic.StoreInt64(&progress.toScan, int64(client.Mailbox.Messages))
@@ -132,7 +132,7 @@ func findNewUIDs(server, email, password, mailbox string, db *db.DB) chan msg {
 
 			msgs, err := client.MsgIDSearch(begin, end, strings.Contains(server, "gmail"))
 			if err != nil {
-				log.Fatal(err)
+				log.Fatalln("Failed to search for messages:", err)
 			}
 
 			begin = end + 1
@@ -168,18 +168,19 @@ func sliceEquals(a, b []string) bool {
 func fetchAndStore(server, email, password, mailbox string, id int, db *db.DB, msgids chan msg) {
 	client, err := Client(server, email, password, mailbox)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalln("Failed to connect to server:", err)
 	}
 
 	for msgid := range msgids {
 		body, err := client.GetMail(msgid.UID)
 		if err != nil {
-			log.Fatal(err)
+			log.Println("Failed to get mail, skipping:", err)
+			continue
 		}
 
 		err = db.WriteMessage(msgid.UID, body, msgid.Labels)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalln("Failed to store message, aborting:", err)
 		}
 
 		atomic.AddInt64(&progress.fetched, 1)
